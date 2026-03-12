@@ -21,6 +21,7 @@ use super::{
     response_processor::{create_logged_passthrough_stream, process_response, SseUsageCollector},
     server::ProxyState,
     types::*,
+    upstream_capabilities::{CapabilitySupport, ResponsesCompactMode},
     usage::parser::TokenUsage,
     ProxyError,
 };
@@ -89,7 +90,7 @@ pub async fn handle_messages(
             if let Some(provider) = err.provider.take() {
                 ctx.provider = provider;
             }
-            log_forward_error(&state, &ctx, is_stream, &err.error);
+            log_forward_error(&state, &ctx, is_stream, &err.error).await;
             return Err(err.error);
         }
     };
@@ -314,7 +315,7 @@ pub async fn handle_chat_completions(
             if let Some(provider) = err.provider.take() {
                 ctx.provider = provider;
             }
-            log_forward_error(&state, &ctx, is_stream, &err.error);
+            log_forward_error(&state, &ctx, is_stream, &err.error).await;
             return Err(err.error);
         }
     };
@@ -355,7 +356,7 @@ pub async fn handle_responses(
             if let Some(provider) = err.provider.take() {
                 ctx.provider = provider;
             }
-            log_forward_error(&state, &ctx, is_stream, &err.error);
+            log_forward_error(&state, &ctx, is_stream, &err.error).await;
             return Err(err.error);
         }
     };
@@ -379,25 +380,117 @@ pub async fn handle_responses_compact(
         .get("stream")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
+    let compact_mode = ResponsesCompactMode::from_provider(&ctx.provider);
+    let providers = ctx.get_providers();
 
     let forwarder = ctx.create_forwarder(&state);
-    let result = match forwarder
-        .forward_with_retry(
-            &AppType::Codex,
-            "/responses/compact",
-            body,
-            headers,
-            ctx.get_providers(),
-        )
-        .await
-    {
-        Ok(result) => result,
-        Err(mut err) => {
-            if let Some(provider) = err.provider.take() {
-                ctx.provider = provider;
+    if compact_mode == ResponsesCompactMode::Disabled {
+        let error = ProxyError::ConfigError(format!(
+            "Responses compact disabled for provider {}",
+            ctx.provider.name
+        ));
+        log_forward_error(&state, &ctx, is_stream, &error).await;
+        return Err(error);
+    }
+
+    let cached_compatibility = state
+        .get_upstream_compatibility(&AppType::Codex, &ctx.provider.id)
+        .await;
+    let should_prefer_synthetic = compact_mode == ResponsesCompactMode::Synthetic
+        || (compact_mode == ResponsesCompactMode::Native
+            && providers.len() == 1
+            && cached_compatibility
+                .as_ref()
+                .map(|snapshot| snapshot.responses_compact == CapabilitySupport::Unsupported)
+                .unwrap_or(false));
+
+    let result = if should_prefer_synthetic {
+        log::info!(
+            "[Codex] Responses compact handled via synthetic fallback. provider={}, compact_mode={}"
+            , ctx.provider.name, compact_mode.as_str()
+        );
+        match forwarder
+            .forward_with_retry(
+                &AppType::Codex,
+                "/responses",
+                body,
+                headers,
+                providers,
+            )
+            .await
+        {
+            Ok(result) => result,
+            Err(mut err) => {
+                if let Some(provider) = err.provider.take() {
+                    ctx.provider = provider;
+                }
+                log_forward_error(&state, &ctx, is_stream, &err.error).await;
+                return Err(err.error);
             }
-            log_forward_error(&state, &ctx, is_stream, &err.error);
-            return Err(err.error);
+        }
+    } else {
+        match forwarder
+            .forward_with_retry(
+                &AppType::Codex,
+                "/responses/compact",
+                body.clone(),
+                headers.clone(),
+                providers.clone(),
+            )
+            .await
+        {
+            Ok(result) => result,
+            Err(mut err) if should_fallback_to_synthetic_compact(&err.error) => {
+                if let Some(provider) = err.provider.take() {
+                    ctx.provider = provider;
+                }
+                let compatibility_summary = state
+                    .get_upstream_compatibility(&AppType::Codex, &ctx.provider.id)
+                    .await
+                    .map(|snapshot| snapshot.summary())
+                    .unwrap_or_else(|| {
+                        "responses=unknown, compact=unknown, sse=unknown, schema=unknown, compact_mode=synthetic".to_string()
+                    });
+                log::warn!(
+                    "[Codex] Responses compact fallback -> synthetic (/responses). provider={}, compact_mode={}, compatibility={}"
+                    , ctx.provider.name, compact_mode.as_str(), compatibility_summary
+                );
+                match forwarder
+                    .forward_with_retry(
+                        &AppType::Codex,
+                        "/responses",
+                        body,
+                        headers,
+                        providers,
+                    )
+                    .await
+                {
+                    Ok(result) => result,
+                    Err(mut fallback_err) => {
+                        if let Some(provider) = fallback_err.provider.take() {
+                            ctx.provider = provider;
+                        }
+                        log_forward_error(&state, &ctx, is_stream, &fallback_err.error).await;
+                        return Err(fallback_err.error);
+                    }
+                }
+            }
+            Err(mut err) => {
+                if let Some(provider) = err.provider.take() {
+                    ctx.provider = provider;
+                }
+                if let Some(snapshot) = state
+                    .get_upstream_compatibility(&AppType::Codex, &ctx.provider.id)
+                    .await
+                {
+                    log::warn!(
+                        "[Codex] Responses compact failed without fallback. provider={}, compact_mode={}, compatibility={}"
+                        , ctx.provider.name, compact_mode.as_str(), snapshot.summary()
+                    );
+                }
+                log_forward_error(&state, &ctx, is_stream, &err.error).await;
+                return Err(err.error);
+            }
         }
     };
 
@@ -405,6 +498,13 @@ pub async fn handle_responses_compact(
     let response = result.response;
 
     process_response(response, &ctx, &state, &CODEX_PARSER_CONFIG).await
+}
+
+fn should_fallback_to_synthetic_compact(error: &ProxyError) -> bool {
+    matches!(
+        error,
+        ProxyError::UpstreamError { status, .. } if matches!(status, 404 | 405 | 501)
+    )
 }
 
 // ============================================================================
@@ -450,7 +550,7 @@ pub async fn handle_gemini(
             if let Some(provider) = err.provider.take() {
                 ctx.provider = provider;
             }
-            log_forward_error(&state, &ctx, is_stream, &err.error);
+            log_forward_error(&state, &ctx, is_stream, &err.error).await;
             return Err(err.error);
         }
     };
@@ -465,7 +565,7 @@ pub async fn handle_gemini(
 // 使用量记录（保留用于 Claude 转换逻辑）
 // ============================================================================
 
-fn log_forward_error(
+async fn log_forward_error(
     state: &ProxyState,
     ctx: &RequestContext,
     is_streaming: bool,
@@ -475,7 +575,12 @@ fn log_forward_error(
 
     let logger = UsageLogger::new(&state.db);
     let status_code = map_proxy_error_to_status(error);
-    let error_message = get_error_message(error);
+    let compatibility_suffix = state
+        .get_upstream_compatibility(&ctx.app_type, &ctx.provider.id)
+        .await
+        .map(|snapshot| format!(" [compatibility: {}]", snapshot.summary()))
+        .unwrap_or_default();
+    let error_message = format!("{}{}", get_error_message(error), compatibility_suffix);
     let request_id = uuid::Uuid::new_v4().to_string();
 
     if let Err(e) = logger.log_error_with_context(

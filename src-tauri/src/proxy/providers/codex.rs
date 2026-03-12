@@ -5,7 +5,7 @@
 //! ## 客户端检测
 //! 支持检测官方 Codex 客户端 (codex_vscode, codex_cli_rs)
 
-use super::{AuthInfo, AuthStrategy, ProviderAdapter};
+use super::{AuthInfo, AuthStrategy, LogicalEndpoint, ProviderAdapter};
 use crate::provider::Provider;
 use crate::proxy::error::ProxyError;
 use regex::Regex;
@@ -172,6 +172,15 @@ impl ProviderAdapter for CodexAdapter {
         }
 
         url
+    }
+
+    fn resolve_upstream_url(
+        &self,
+        provider: &Provider,
+        base_url: &str,
+        logical_endpoint: LogicalEndpoint,
+    ) -> String {
+        super::resolve_upstream_url(provider, base_url, logical_endpoint).url
     }
 
     fn add_auth_headers(&self, request: RequestBuilder, auth: &AuthInfo) -> RequestBuilder {

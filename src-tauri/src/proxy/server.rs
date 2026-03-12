@@ -4,8 +4,10 @@
 
 use super::{
     failover_switch::FailoverSwitchManager, handlers, log_codes::srv as log_srv,
-    provider_router::ProviderRouter, types::*, ProxyError,
+    provider_router::ProviderRouter, types::*, upstream_capabilities::UpstreamCompatibility,
+    ProxyError,
 };
+use crate::app_config::AppType;
 use crate::database::Database;
 use axum::{
     extract::DefaultBodyLimit,
@@ -33,6 +35,9 @@ pub struct ProxyState {
     pub app_handle: Option<tauri::AppHandle>,
     /// 故障转移切换管理器
     pub failover_manager: Arc<FailoverSwitchManager>,
+    /// 上游能力缓存（app_type::provider_id -> capability snapshot）
+    pub upstream_compatibility:
+        Arc<RwLock<std::collections::HashMap<String, UpstreamCompatibility>>>,
 }
 
 /// 代理HTTP服务器
@@ -64,6 +69,7 @@ impl ProxyServer {
             provider_router,
             app_handle,
             failover_manager,
+            upstream_compatibility: Arc::new(RwLock::new(std::collections::HashMap::new())),
         };
 
         Self {
@@ -284,5 +290,20 @@ impl ProxyServer {
             .provider_router
             .reset_provider_breaker(provider_id, app_type)
             .await;
+    }
+}
+
+impl ProxyState {
+    fn compatibility_key(app_type: &AppType, provider_id: &str) -> String {
+        format!("{}::{provider_id}", app_type.as_str())
+    }
+
+    pub async fn get_upstream_compatibility(
+        &self,
+        app_type: &AppType,
+        provider_id: &str,
+    ) -> Option<UpstreamCompatibility> {
+        let key = Self::compatibility_key(app_type, provider_id);
+        self.upstream_compatibility.read().await.get(&key).cloned()
     }
 }

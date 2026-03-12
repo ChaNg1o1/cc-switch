@@ -22,13 +22,16 @@ export function useStreamCheck(appId: AppId) {
 
       try {
         const result = await streamCheckProvider(appId, providerId);
+        const compatibilitySuffix = result.compatibility
+          ? ` | Responses: ${result.compatibility.responses}, Compact: ${result.compatibility.responsesCompact}, SSE: ${result.compatibility.streamingSse}, Mode: ${result.compatibility.compactMode}`
+          : "";
 
         if (result.status === "operational") {
           toast.success(
             t("streamCheck.operational", {
               providerName: providerName,
               responseTimeMs: result.responseTimeMs,
-              defaultValue: `${providerName} 运行正常 (${result.responseTimeMs}ms)`,
+              defaultValue: `${providerName} 运行正常 (${result.responseTimeMs}ms)${compatibilitySuffix}`,
             }),
             { closeButton: true },
           );
@@ -40,7 +43,7 @@ export function useStreamCheck(appId: AppId) {
             t("streamCheck.degraded", {
               providerName: providerName,
               responseTimeMs: result.responseTimeMs,
-              defaultValue: `${providerName} 响应较慢 (${result.responseTimeMs}ms)`,
+              defaultValue: `${providerName} 响应较慢 (${result.responseTimeMs}ms)${compatibilitySuffix}`,
             }),
           );
 
@@ -51,7 +54,7 @@ export function useStreamCheck(appId: AppId) {
             t("streamCheck.failed", {
               providerName: providerName,
               message: result.message,
-              defaultValue: `${providerName} 检查失败: ${result.message}`,
+              defaultValue: `${providerName} 检查失败: ${result.message}${compatibilitySuffix}`,
             }),
           );
         }

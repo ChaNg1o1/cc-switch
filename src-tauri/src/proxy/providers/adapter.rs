@@ -3,6 +3,7 @@
 //! 定义供应商适配器的统一接口，抽象不同上游供应商的处理逻辑。
 
 use super::auth::AuthInfo;
+use super::upstream::{resolve_upstream_url, LogicalEndpoint};
 use crate::provider::Provider;
 use crate::proxy::error::ProxyError;
 use reqwest::RequestBuilder;
@@ -73,6 +74,16 @@ pub trait ProviderAdapter: Send + Sync {
     /// # Returns
     /// 完整的请求 URL
     fn build_url(&self, base_url: &str, endpoint: &str) -> String;
+
+    /// Resolve a logical upstream endpoint using provider-specific path strategy.
+    fn resolve_upstream_url(
+        &self,
+        provider: &Provider,
+        base_url: &str,
+        logical_endpoint: LogicalEndpoint,
+    ) -> String {
+        resolve_upstream_url(provider, base_url, logical_endpoint).url
+    }
 
     /// 添加认证头到请求
     ///

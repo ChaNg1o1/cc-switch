@@ -78,6 +78,7 @@ pub async fn stream_check_all_providers(
                 model_used: String::new(),
                 tested_at: chrono::Utc::now().timestamp(),
                 retry_count: 0,
+                compatibility: None,
             });
 
         let _ = state

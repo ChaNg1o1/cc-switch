@@ -12,7 +12,8 @@ use std::time::Instant;
 use crate::app_config::AppType;
 use crate::error::AppError;
 use crate::provider::Provider;
-use crate::proxy::providers::{get_adapter, AuthInfo, AuthStrategy};
+use crate::proxy::providers::{get_adapter, AuthInfo, AuthStrategy, LogicalEndpoint};
+use crate::proxy::upstream_capabilities::UpstreamCompatibility;
 
 /// 健康状态枚举
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -71,6 +72,8 @@ pub struct StreamCheckResult {
     pub model_used: String,
     pub tested_at: i64,
     pub retry_count: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub compatibility: Option<UpstreamCompatibility>,
 }
 
 /// 流式健康检查服务
@@ -129,6 +132,7 @@ impl StreamCheckService {
             model_used: String::new(),
             tested_at: chrono::Utc::now().timestamp(),
             retry_count: effective_config.max_retries,
+            compatibility: None,
         }))
     }
 
@@ -197,6 +201,17 @@ impl StreamCheckService {
 
         let model_to_test = Self::resolve_test_model(app_type, provider, config);
         let test_prompt = &config.test_prompt;
+        let compatibility = Self::probe_upstream_compatibility(
+            app_type,
+            provider,
+            &client,
+            &base_url,
+            &auth,
+            &model_to_test,
+            test_prompt,
+            std::cmp::min(request_timeout, std::time::Duration::from_secs(12)),
+        )
+        .await;
 
         let result = match app_type {
             AppType::Claude => {
@@ -214,6 +229,7 @@ impl StreamCheckService {
             AppType::Codex => {
                 Self::check_codex_stream(
                     &client,
+                    provider,
                     &base_url,
                     &auth,
                     &model_to_test,
@@ -267,6 +283,7 @@ impl StreamCheckService {
                     model_used: model,
                     tested_at,
                     retry_count: 0,
+                    compatibility: Some(compatibility),
                 })
             }
             Err(e) => Ok(StreamCheckResult {
@@ -278,7 +295,158 @@ impl StreamCheckService {
                 model_used: String::new(),
                 tested_at,
                 retry_count: 0,
+                compatibility: Some(compatibility),
             }),
+        }
+    }
+
+    async fn probe_upstream_compatibility(
+        app_type: &AppType,
+        provider: &Provider,
+        client: &Client,
+        base_url: &str,
+        auth: &AuthInfo,
+        model: &str,
+        test_prompt: &str,
+        timeout: std::time::Duration,
+    ) -> UpstreamCompatibility {
+        let mut snapshot = UpstreamCompatibility::for_provider(app_type, provider);
+
+        match app_type {
+            AppType::Codex => {
+                snapshot = Self::probe_openai_endpoint(
+                    snapshot,
+                    app_type,
+                    client,
+                    provider,
+                    base_url,
+                    auth,
+                    model,
+                    test_prompt,
+                    timeout,
+                    LogicalEndpoint::ResponsesCreate,
+                )
+                .await;
+                snapshot = Self::probe_openai_endpoint(
+                    snapshot,
+                    app_type,
+                    client,
+                    provider,
+                    base_url,
+                    auth,
+                    model,
+                    test_prompt,
+                    timeout,
+                    LogicalEndpoint::ResponsesCompact,
+                )
+                .await;
+            }
+            AppType::Claude => {
+                let api_format = provider
+                    .meta
+                    .as_ref()
+                    .and_then(|m| m.api_format.as_deref())
+                    .or_else(|| {
+                        provider
+                            .settings_config
+                            .get("api_format")
+                            .and_then(|v| v.as_str())
+                    })
+                    .unwrap_or("anthropic");
+
+                if api_format != "anthropic" {
+                    snapshot = Self::probe_openai_endpoint(
+                        snapshot,
+                        app_type,
+                        client,
+                        provider,
+                        base_url,
+                        auth,
+                        model,
+                        test_prompt,
+                        timeout,
+                        LogicalEndpoint::ResponsesCreate,
+                    )
+                    .await;
+                    snapshot = Self::probe_openai_endpoint(
+                        snapshot,
+                        app_type,
+                        client,
+                        provider,
+                        base_url,
+                        auth,
+                        model,
+                        test_prompt,
+                        timeout,
+                        LogicalEndpoint::ResponsesCompact,
+                    )
+                    .await;
+                }
+            }
+            _ => {}
+        }
+
+        snapshot
+    }
+
+    async fn probe_openai_endpoint(
+        snapshot: UpstreamCompatibility,
+        app_type: &AppType,
+        client: &Client,
+        provider: &Provider,
+        base_url: &str,
+        auth: &AuthInfo,
+        model: &str,
+        test_prompt: &str,
+        timeout: std::time::Duration,
+        logical_endpoint: LogicalEndpoint,
+    ) -> UpstreamCompatibility {
+        let adapter = get_adapter(app_type);
+        let url = adapter.resolve_upstream_url(provider, base_url.trim_end_matches('/'), logical_endpoint);
+        let streaming = matches!(logical_endpoint, LogicalEndpoint::ResponsesCreate);
+
+        let response = client
+            .post(url)
+            .header("authorization", format!("Bearer {}", auth.api_key))
+            .header("content-type", "application/json")
+            .header(
+                "accept",
+                if streaming {
+                    "text/event-stream"
+                } else {
+                    "application/json"
+                },
+            )
+            .timeout(timeout)
+            .json(&json!({
+                "model": model,
+                "input": [{ "role": "user", "content": test_prompt }],
+                "stream": streaming
+            }))
+            .send()
+            .await;
+
+        match response {
+            Ok(resp) if resp.status().is_success() => {
+                let saw_sse = streaming
+                    && resp
+                        .headers()
+                        .get("content-type")
+                        .and_then(|value| value.to_str().ok())
+                        .map(|value| value.contains("text/event-stream"))
+                        .unwrap_or(false);
+                snapshot.with_success(logical_endpoint, Some(saw_sse), "stream_check")
+            }
+            Ok(resp) => {
+                let status = resp.status().as_u16();
+                let body_text = resp.text().await.ok();
+                snapshot.with_http_failure(logical_endpoint, status, "stream_check", body_text)
+            }
+            Err(err) => {
+                let note = Some(err.to_string());
+                let status = if err.is_timeout() { 408 } else { 0 };
+                snapshot.with_http_failure(logical_endpoint, status, "stream_check", note)
+            }
         }
     }
 
@@ -312,14 +480,14 @@ impl StreamCheckService {
             .unwrap_or("anthropic");
 
         let is_openai_chat = api_format == "openai_chat";
+        let is_openai_responses = api_format == "openai_responses";
+        let adapter = get_adapter(&AppType::Claude);
 
-        // URL: /v1/chat/completions for openai_chat, /v1/messages?beta=true for anthropic
+        // URL: use logical endpoint resolution for OpenAI-compatible upstreams.
         let url = if is_openai_chat {
-            if base.ends_with("/v1") {
-                format!("{base}/chat/completions")
-            } else {
-                format!("{base}/v1/chat/completions")
-            }
+            adapter.resolve_upstream_url(provider, base, LogicalEndpoint::ChatCompletions)
+        } else if is_openai_responses {
+            adapter.resolve_upstream_url(provider, base, LogicalEndpoint::ResponsesCreate)
         } else {
             // ?beta=true is required by some relay services to verify request origin
             if base.ends_with("/v1") {
@@ -329,17 +497,24 @@ impl StreamCheckService {
             }
         };
 
-        // Body: identical structure for minimal test (both APIs accept messages array)
-        let body = json!({
-            "model": model,
-            "max_tokens": 1,
-            "messages": [{ "role": "user", "content": test_prompt }],
-            "stream": true
-        });
+        let body = if is_openai_responses {
+            json!({
+                "model": model,
+                "input": [{ "role": "user", "content": test_prompt }],
+                "stream": true
+            })
+        } else {
+            json!({
+                "model": model,
+                "max_tokens": 1,
+                "messages": [{ "role": "user", "content": test_prompt }],
+                "stream": true
+            })
+        };
 
         let mut request_builder = client.post(&url);
 
-        if is_openai_chat {
+        if is_openai_chat || is_openai_responses {
             // OpenAI-compatible: Bearer auth + standard headers only
             request_builder = request_builder
                 .header("authorization", format!("Bearer {}", auth.api_key))
@@ -419,23 +594,19 @@ impl StreamCheckService {
     /// 严格按照 Codex CLI 真实请求格式构建请求 (Responses API)
     async fn check_codex_stream(
         client: &Client,
+        provider: &Provider,
         base_url: &str,
         auth: &AuthInfo,
         model: &str,
         test_prompt: &str,
         timeout: std::time::Duration,
     ) -> Result<(u16, String), AppError> {
-        let base = base_url.trim_end_matches('/');
-        // Codex CLI 的 base_url 语义：base_url 是 API base（可能已包含 /v1 或其他自定义前缀），
-        // Responses 端点为 `/responses`。
-        //
-        // 兼容：如果 base_url 配成纯 origin（如 https://api.openai.com），则需要补 `/v1`。
-        // 优先尝试 `{base}/responses`，若 404 再回退 `{base}/v1/responses`。
-        let urls = if base.ends_with("/v1") {
-            vec![format!("{base}/responses")]
-        } else {
-            vec![format!("{base}/responses"), format!("{base}/v1/responses")]
-        };
+        let adapter = get_adapter(&AppType::Codex);
+        let url = adapter.resolve_upstream_url(
+            provider,
+            base_url.trim_end_matches('/'),
+            LogicalEndpoint::ResponsesCreate,
+        );
 
         // 解析模型名和推理等级 (支持 model@level 或 model#level 格式)
         let (actual_model, reasoning_effort) = Self::parse_model_with_effort(model);
@@ -456,7 +627,7 @@ impl StreamCheckService {
             body["reasoning"] = json!({ "effort": effort });
         }
 
-        for (i, url) in urls.iter().enumerate() {
+        for url in [url] {
             // 严格按照 Codex CLI 请求格式设置 headers
             let response = client
                 .post(url)
@@ -479,10 +650,6 @@ impl StreamCheckService {
 
             if !response.status().is_success() {
                 let error_text = response.text().await.unwrap_or_default();
-                // 回退策略：仅当首选 URL 返回 404 时尝试下一个
-                if i == 0 && status == 404 && urls.len() > 1 {
-                    continue;
-                }
                 return Err(AppError::Message(format!("HTTP {status}: {error_text}")));
             }
 
@@ -497,9 +664,7 @@ impl StreamCheckService {
             return Err(AppError::Message("No response data received".to_string()));
         }
 
-        Err(AppError::Message(
-            "No valid Codex responses endpoint found".to_string(),
-        ))
+        Err(AppError::Message("No response data received".to_string()))
     }
 
     /// Gemini 流式检查

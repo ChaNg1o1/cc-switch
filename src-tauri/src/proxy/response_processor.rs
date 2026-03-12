@@ -601,6 +601,7 @@ mod tests {
             provider_router: Arc::new(ProviderRouter::new(db.clone())),
             app_handle: None,
             failover_manager: Arc::new(FailoverSwitchManager::new(db)),
+            upstream_compatibility: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 

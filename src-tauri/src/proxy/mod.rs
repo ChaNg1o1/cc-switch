@@ -26,6 +26,7 @@ pub mod thinking_budget_rectifier;
 pub mod thinking_optimizer;
 pub mod thinking_rectifier;
 pub(crate) mod types;
+pub mod upstream_capabilities;
 pub mod usage;
 
 // 公开导出给外部使用（commands, services等模块需要）

@@ -16,6 +16,7 @@ mod auth;
 mod claude;
 mod codex;
 mod gemini;
+mod upstream;
 pub mod models;
 pub mod streaming;
 pub mod streaming_responses;
@@ -32,6 +33,7 @@ pub use auth::{AuthInfo, AuthStrategy};
 pub use claude::{get_claude_api_format, ClaudeAdapter};
 pub use codex::CodexAdapter;
 pub use gemini::GeminiAdapter;
+pub use upstream::{resolve_upstream_url, LogicalEndpoint};
 
 /// 供应商类型枚举
 ///

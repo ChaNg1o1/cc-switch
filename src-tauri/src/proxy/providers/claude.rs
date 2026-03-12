@@ -12,7 +12,7 @@
 //! - **ClaudeAuth**: 中转服务 (仅 Bearer 认证，无 x-api-key)
 //! - **OpenRouter**: 已支持 Claude Code 兼容接口，默认透传
 
-use super::{AuthInfo, AuthStrategy, ProviderAdapter, ProviderType};
+use super::{AuthInfo, AuthStrategy, LogicalEndpoint, ProviderAdapter, ProviderType};
 use crate::provider::Provider;
 use crate::proxy::error::ProxyError;
 use reqwest::RequestBuilder;
@@ -285,6 +285,20 @@ impl ProviderAdapter for ClaudeAdapter {
             format!("{base}?beta=true")
         } else {
             base
+        }
+    }
+
+    fn resolve_upstream_url(
+        &self,
+        provider: &Provider,
+        base_url: &str,
+        logical_endpoint: LogicalEndpoint,
+    ) -> String {
+        match logical_endpoint {
+            LogicalEndpoint::ChatCompletions | LogicalEndpoint::ResponsesCreate => {
+                super::resolve_upstream_url(provider, base_url, logical_endpoint).url
+            }
+            _ => self.build_url(base_url, logical_endpoint.default_path()),
         }
     }
 

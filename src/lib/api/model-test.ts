@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { AppId } from "./types";
+import type { UpstreamCompatibility } from "@/types";
 
 // ===== 流式健康检查类型 =====
 
@@ -24,6 +25,7 @@ export interface StreamCheckResult {
   modelUsed: string;
   testedAt: number;
   retryCount: number;
+  compatibility?: UpstreamCompatibility;
 }
 
 // ===== 流式健康检查 API =====

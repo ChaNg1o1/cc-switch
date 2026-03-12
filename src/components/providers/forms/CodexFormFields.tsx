@@ -1,7 +1,8 @@
 import { useTranslation } from "react-i18next";
 import EndpointSpeedTest from "./EndpointSpeedTest";
+import { UpstreamPathStrategyFields } from "./UpstreamPathStrategyFields";
 import { ApiKeySection, EndpointField } from "./shared";
-import type { ProviderCategory } from "@/types";
+import type { ProviderCategory, UpstreamPathConfig } from "@/types";
 
 interface EndpointCandidate {
   url: string;
@@ -35,6 +36,10 @@ interface CodexFormFieldsProps {
 
   // Speed Test Endpoints
   speedTestEndpoints: EndpointCandidate[];
+
+  // Upstream path strategy
+  upstreamPathConfig: UpstreamPathConfig;
+  onUpstreamPathConfigChange: (value: UpstreamPathConfig) => void;
 }
 
 export function CodexFormFields({
@@ -58,6 +63,8 @@ export function CodexFormFields({
   modelName = "",
   onModelNameChange,
   speedTestEndpoints,
+  upstreamPathConfig,
+  onUpstreamPathConfigChange,
 }: CodexFormFieldsProps) {
   const { t } = useTranslation();
 
@@ -94,6 +101,13 @@ export function CodexFormFields({
           placeholder={t("providerForm.codexApiEndpointPlaceholder")}
           hint={t("providerForm.codexApiHint")}
           onManageClick={() => onEndpointModalToggle(true)}
+        />
+      )}
+
+      {shouldShowSpeedTest && (
+        <UpstreamPathStrategyFields
+          value={upstreamPathConfig}
+          onChange={onUpstreamPathConfigChange}
         />
       )}
 

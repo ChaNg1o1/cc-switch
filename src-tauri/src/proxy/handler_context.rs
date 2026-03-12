@@ -215,6 +215,7 @@ impl RequestContext {
             state.status.clone(),
             state.current_providers.clone(),
             state.failover_manager.clone(),
+            state.upstream_compatibility.clone(),
             state.app_handle.clone(),
             self.current_provider_id.clone(),
             first_byte_timeout,

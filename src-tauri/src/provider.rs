@@ -250,6 +250,39 @@ pub struct ProviderMeta {
     /// If not set, provider ID is used automatically during format conversion.
     #[serde(rename = "promptCacheKey", skip_serializing_if = "Option::is_none")]
     pub prompt_cache_key: Option<String>,
+    /// Upstream OpenAI-compatible URL strategy.
+    #[serde(rename = "upstreamApiStyle", skip_serializing_if = "Option::is_none")]
+    pub upstream_api_style: Option<String>,
+    /// Optional upstream namespace prefix such as `/openai`.
+    #[serde(rename = "upstreamPrefix", skip_serializing_if = "Option::is_none")]
+    pub upstream_prefix: Option<String>,
+    /// Optional base path prepended before OpenAI-compatible logical endpoints.
+    #[serde(rename = "openaiBasePath", skip_serializing_if = "Option::is_none")]
+    pub openai_base_path: Option<String>,
+    /// Optional path template for Responses create.
+    #[serde(rename = "responsesPath", skip_serializing_if = "Option::is_none")]
+    pub responses_path: Option<String>,
+    /// Optional path template for Responses compact.
+    #[serde(
+        rename = "responsesCompactPath",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub responses_compact_path: Option<String>,
+    /// Responses compact execution mode.
+    /// - "native": prefer upstream compact, fallback to synthetic on capability miss
+    /// - "synthetic": always route compact requests through local responses fallback
+    /// - "disabled": reject compact requests explicitly
+    #[serde(
+        rename = "responsesCompactMode",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub responses_compact_mode: Option<String>,
+    /// Optional path template for Chat Completions.
+    #[serde(
+        rename = "chatCompletionsPath",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub chat_completions_path: Option<String>,
 }
 
 impl ProviderManager {

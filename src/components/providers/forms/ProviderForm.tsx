@@ -15,6 +15,7 @@ import type {
   ProviderProxyConfig,
   ClaudeApiFormat,
   ClaudeApiKeyField,
+  UpstreamPathConfig,
 } from "@/types";
 import {
   providerPresets,
@@ -165,6 +166,15 @@ export function ProviderForm({
   const [proxyConfig, setProxyConfig] = useState<ProviderProxyConfig>(
     () => initialData?.meta?.proxyConfig ?? { enabled: false },
   );
+  const [upstreamPathConfig, setUpstreamPathConfig] =
+    useState<UpstreamPathConfig>(() => ({
+      upstreamApiStyle: initialData?.meta?.upstreamApiStyle,
+      upstreamPrefix: initialData?.meta?.upstreamPrefix,
+      openaiBasePath: initialData?.meta?.openaiBasePath,
+      responsesPath: initialData?.meta?.responsesPath,
+      responsesCompactPath: initialData?.meta?.responsesCompactPath,
+      chatCompletionsPath: initialData?.meta?.chatCompletionsPath,
+    }));
   const [pricingConfig, setPricingConfig] = useState<{
     enabled: boolean;
     costMultiplier?: string;
@@ -199,6 +209,15 @@ export function ProviderForm({
     setEndpointAutoSelect(initialData?.meta?.endpointAutoSelect ?? true);
     setTestConfig(initialData?.meta?.testConfig ?? { enabled: false });
     setProxyConfig(initialData?.meta?.proxyConfig ?? { enabled: false });
+    setUpstreamPathConfig({
+      upstreamApiStyle: initialData?.meta?.upstreamApiStyle,
+      upstreamPrefix: initialData?.meta?.upstreamPrefix,
+      openaiBasePath: initialData?.meta?.openaiBasePath,
+      responsesPath: initialData?.meta?.responsesPath,
+      responsesCompactPath: initialData?.meta?.responsesCompactPath,
+      responsesCompactMode: initialData?.meta?.responsesCompactMode,
+      chatCompletionsPath: initialData?.meta?.chatCompletionsPath,
+    });
     setPricingConfig({
       enabled:
         initialData?.meta?.costMultiplier !== undefined ||
@@ -860,6 +879,9 @@ export function ProviderForm({
 
     const baseMeta: ProviderMeta | undefined =
       payload.meta ?? (initialData?.meta ? { ...initialData.meta } : undefined);
+    const normalizedUpstreamPathConfig = normalizeUpstreamPathConfig(
+      upstreamPathConfig,
+    );
     payload.meta = {
       ...(baseMeta ?? {}),
       commonConfigEnabled:
@@ -890,6 +912,13 @@ export function ProviderForm({
         localApiKeyField !== "ANTHROPIC_AUTH_TOKEN"
           ? localApiKeyField
           : undefined,
+      upstreamApiStyle: normalizedUpstreamPathConfig.upstreamApiStyle,
+      upstreamPrefix: normalizedUpstreamPathConfig.upstreamPrefix,
+      openaiBasePath: normalizedUpstreamPathConfig.openaiBasePath,
+      responsesPath: normalizedUpstreamPathConfig.responsesPath,
+      responsesCompactPath: normalizedUpstreamPathConfig.responsesCompactPath,
+      responsesCompactMode: normalizedUpstreamPathConfig.responsesCompactMode,
+      chatCompletionsPath: normalizedUpstreamPathConfig.chatCompletionsPath,
     };
 
     onSubmit(payload);
@@ -1337,6 +1366,8 @@ export function ProviderForm({
             onApiFormatChange={handleApiFormatChange}
             apiKeyField={localApiKeyField}
             onApiKeyFieldChange={handleApiKeyFieldChange}
+            upstreamPathConfig={upstreamPathConfig}
+            onUpstreamPathConfigChange={setUpstreamPathConfig}
           />
         )}
 
@@ -1364,6 +1395,8 @@ export function ProviderForm({
             modelName={codexModelName}
             onModelNameChange={handleCodexModelNameChange}
             speedTestEndpoints={speedTestEndpoints}
+            upstreamPathConfig={upstreamPathConfig}
+            onUpstreamPathConfigChange={setUpstreamPathConfig}
           />
         )}
 
@@ -1616,3 +1649,37 @@ export type ProviderFormValues = ProviderFormData & {
   providerKey?: string; // OpenCode/OpenClaw: user-defined provider key
   suggestedDefaults?: OpenClawSuggestedDefaults; // OpenClaw: suggested default model configuration
 };
+
+function normalizeUpstreamPathConfig(
+  value: UpstreamPathConfig,
+): UpstreamPathConfig {
+  const normalize = (raw?: string) => {
+    const trimmed = raw?.trim();
+    return trimmed ? trimmed : undefined;
+  };
+
+  const upstreamApiStyle = value.upstreamApiStyle ?? "standard_openai";
+  const normalized: UpstreamPathConfig = {
+    upstreamApiStyle,
+    upstreamPrefix: normalize(value.upstreamPrefix),
+    openaiBasePath: normalize(value.openaiBasePath),
+    responsesPath: normalize(value.responsesPath),
+    responsesCompactPath: normalize(value.responsesCompactPath),
+    responsesCompactMode: value.responsesCompactMode ?? "synthetic",
+    chatCompletionsPath: normalize(value.chatCompletionsPath),
+  };
+
+  const hasExplicitFields =
+    normalized.upstreamPrefix ||
+    normalized.openaiBasePath ||
+    normalized.responsesPath ||
+    normalized.responsesCompactPath ||
+    normalized.responsesCompactMode !== "synthetic" ||
+    normalized.chatCompletionsPath;
+
+  if (!hasExplicitFields && upstreamApiStyle === "standard_openai") {
+    return {};
+  }
+
+  return normalized;
+}

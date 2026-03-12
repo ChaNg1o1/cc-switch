@@ -122,6 +122,36 @@ export interface ProviderProxyConfig {
   proxyPassword?: string;
 }
 
+export type UpstreamApiStyle =
+  | "standard_openai"
+  | "prefixed_openai"
+  | "custom";
+
+export type ResponsesCompactMode = "native" | "synthetic" | "disabled";
+
+export type CapabilitySupport = "supported" | "unsupported" | "unknown";
+
+export interface UpstreamCompatibility {
+  responses: CapabilitySupport;
+  responsesCompact: CapabilitySupport;
+  streamingSse: CapabilitySupport;
+  responsesSchema: CapabilitySupport;
+  compactMode: ResponsesCompactMode;
+  lastCheckedAt?: number;
+  source?: string;
+  note?: string;
+}
+
+export interface UpstreamPathConfig {
+  upstreamApiStyle?: UpstreamApiStyle;
+  upstreamPrefix?: string;
+  openaiBasePath?: string;
+  responsesPath?: string;
+  responsesCompactPath?: string;
+  responsesCompactMode?: ResponsesCompactMode;
+  chatCompletionsPath?: string;
+}
+
 // 供应商元数据（字段名与后端一致，保持 snake_case）
 export interface ProviderMeta {
   // 自定义端点：以 URL 为键，值为端点信息
@@ -153,6 +183,14 @@ export interface ProviderMeta {
   apiKeyField?: ClaudeApiKeyField;
   // Prompt cache key for OpenAI-compatible endpoints (improves cache hit rate)
   promptCacheKey?: string;
+  // OpenAI-compatible upstream path strategy
+  upstreamApiStyle?: UpstreamApiStyle;
+  upstreamPrefix?: string;
+  openaiBasePath?: string;
+  responsesPath?: string;
+  responsesCompactPath?: string;
+  responsesCompactMode?: ResponsesCompactMode;
+  chatCompletionsPath?: string;
 }
 
 // Skill 同步方式

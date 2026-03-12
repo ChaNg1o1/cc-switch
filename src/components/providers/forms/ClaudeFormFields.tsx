@@ -9,11 +9,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import EndpointSpeedTest from "./EndpointSpeedTest";
+import { UpstreamPathStrategyFields } from "./UpstreamPathStrategyFields";
 import { ApiKeySection, EndpointField } from "./shared";
 import type {
   ProviderCategory,
   ClaudeApiFormat,
   ClaudeApiKeyField,
+  UpstreamPathConfig,
 } from "@/types";
 import type { TemplateValueConfig } from "@/config/claudeProviderPresets";
 
@@ -76,6 +78,10 @@ interface ClaudeFormFieldsProps {
   // Auth Field (ANTHROPIC_AUTH_TOKEN or ANTHROPIC_API_KEY)
   apiKeyField: ClaudeApiKeyField;
   onApiKeyFieldChange: (field: ClaudeApiKeyField) => void;
+
+  // Upstream path strategy for OpenAI-compatible upstreams
+  upstreamPathConfig: UpstreamPathConfig;
+  onUpstreamPathConfigChange: (value: UpstreamPathConfig) => void;
 }
 
 export function ClaudeFormFields({
@@ -112,6 +118,8 @@ export function ClaudeFormFields({
   onApiFormatChange,
   apiKeyField,
   onApiKeyFieldChange,
+  upstreamPathConfig,
+  onUpstreamPathConfigChange,
 }: ClaudeFormFieldsProps) {
   const { t } = useTranslation();
 
@@ -181,6 +189,13 @@ export function ClaudeFormFields({
                 : t("providerForm.apiHint")
           }
           onManageClick={() => onEndpointModalToggle(true)}
+        />
+      )}
+
+      {shouldShowSpeedTest && apiFormat !== "anthropic" && (
+        <UpstreamPathStrategyFields
+          value={upstreamPathConfig}
+          onChange={onUpstreamPathConfigChange}
         />
       )}
 

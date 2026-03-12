@@ -8,7 +8,8 @@ use super::{
     failover_switch::FailoverSwitchManager,
     log_codes::fwd as log_fwd,
     provider_router::ProviderRouter,
-    providers::{get_adapter, ProviderAdapter, ProviderType},
+    providers::{get_adapter, LogicalEndpoint, ProviderAdapter, ProviderType},
+    upstream_capabilities::UpstreamCompatibility,
     thinking_budget_rectifier::{rectify_thinking_budget, should_rectify_thinking_budget},
     thinking_rectifier::{
         normalize_thinking_type, rectify_anthropic_request, should_rectify_thinking_signature,
@@ -92,6 +93,8 @@ pub struct RequestForwarder {
     current_providers: Arc<RwLock<std::collections::HashMap<String, (String, String)>>>,
     /// 故障转移切换管理器
     failover_manager: Arc<FailoverSwitchManager>,
+    /// 上游能力缓存
+    upstream_compatibility: Arc<RwLock<std::collections::HashMap<String, UpstreamCompatibility>>>,
     /// AppHandle，用于发射事件和更新托盘
     app_handle: Option<tauri::AppHandle>,
     /// 请求开始时的"当前供应商 ID"（用于判断是否需要同步 UI/托盘）
@@ -112,6 +115,7 @@ impl RequestForwarder {
         status: Arc<RwLock<ProxyStatus>>,
         current_providers: Arc<RwLock<std::collections::HashMap<String, (String, String)>>>,
         failover_manager: Arc<FailoverSwitchManager>,
+        upstream_compatibility: Arc<RwLock<std::collections::HashMap<String, UpstreamCompatibility>>>,
         app_handle: Option<tauri::AppHandle>,
         current_provider_id_at_start: String,
         _streaming_first_byte_timeout: u64,
@@ -124,6 +128,7 @@ impl RequestForwarder {
             status,
             current_providers,
             failover_manager,
+            upstream_compatibility,
             app_handle,
             current_provider_id_at_start,
             rectifier_config,
@@ -218,6 +223,7 @@ impl RequestForwarder {
             // 转发请求（每个 Provider 只尝试一次，重试由客户端控制）
             match self
                 .forward(
+                    app_type,
                     provider,
                     endpoint,
                     &provider_body,
@@ -346,6 +352,7 @@ impl RequestForwarder {
                                 // 使用同一供应商重试（不计入熔断器）
                                 match self
                                     .forward(
+                                        app_type,
                                         provider,
                                         endpoint,
                                         &provider_body,
@@ -543,6 +550,7 @@ impl RequestForwarder {
                             // 使用同一供应商重试（不计入熔断器）
                             match self
                                 .forward(
+                                    app_type,
                                     provider,
                                     endpoint,
                                     &provider_body,
@@ -780,6 +788,7 @@ impl RequestForwarder {
     /// 转发单个请求（使用适配器）
     async fn forward(
         &self,
+        app_type: &AppType,
         provider: &Provider,
         endpoint: &str,
         body: &Value,
@@ -791,22 +800,15 @@ impl RequestForwarder {
 
         // 检查是否需要格式转换
         let needs_transform = adapter.needs_transform(provider);
+        let logical_endpoint = resolve_logical_endpoint(endpoint, needs_transform, adapter, provider);
+        let upstream_resolution = logical_endpoint.map(|logical| {
+            super::providers::resolve_upstream_url(provider, &base_url, logical)
+        });
 
-        let effective_endpoint =
-            if needs_transform && adapter.name() == "Claude" && endpoint == "/v1/messages" {
-                // 根据 api_format 选择目标端点
-                let api_format = super::providers::get_claude_api_format(provider);
-                if api_format == "openai_responses" {
-                    "/v1/responses"
-                } else {
-                    "/v1/chat/completions"
-                }
-            } else {
-                endpoint
-            };
-
-        // 使用适配器构建 URL
-        let url = adapter.build_url(&base_url, effective_endpoint);
+        let url = upstream_resolution
+            .as_ref()
+            .map(|value| value.url.clone())
+            .unwrap_or_else(|| adapter.build_url(&base_url, endpoint));
 
         // 应用模型映射（独立于格式转换）
         let (mapped_body, _original_model, _mapped_model) =
@@ -825,6 +827,10 @@ impl RequestForwarder {
         // 过滤私有参数（以 `_` 开头的字段），防止内部信息泄露到上游
         // 默认使用空白名单，过滤所有 _ 前缀字段
         let filtered_body = filter_private_params_with_whitelist(request_body, &[]);
+        let requested_stream = filtered_body
+            .get("stream")
+            .and_then(|value| value.as_bool())
+            .unwrap_or(false);
 
         // 获取 HTTP 客户端：优先使用供应商单独代理配置，否则使用全局客户端
         let proxy_config = provider.meta.as_ref().and_then(|m| m.proxy_config.as_ref());
@@ -910,7 +916,21 @@ impl RequestForwarder {
             .get("model")
             .and_then(|v| v.as_str())
             .unwrap_or("<none>");
-        log::info!("[{tag}] >>> 请求 URL: {url} (model={request_model})");
+        let logical_endpoint_label = upstream_resolution
+            .as_ref()
+            .map(|value| value.logical_endpoint.as_str())
+            .unwrap_or("RawEndpoint");
+        let path_strategy = upstream_resolution
+            .as_ref()
+            .map(|value| value.applied_style.as_str())
+            .unwrap_or("raw");
+        let path_rewritten = upstream_resolution
+            .as_ref()
+            .map(|value| value.path_rewritten)
+            .unwrap_or(false);
+        log::info!(
+            "[{tag}] >>> 请求 URL: {url} (model={request_model}, logical_endpoint={logical_endpoint_label}, path_strategy={path_strategy}, path_rewritten={path_rewritten})"
+        );
         if let Ok(body_str) = serde_json::to_string(&filtered_body) {
             log::debug!(
                 "[{tag}] >>> 请求体内容 ({}字节): {}",
@@ -934,10 +954,31 @@ impl RequestForwarder {
         let status = response.status();
 
         if status.is_success() {
+            if let Some(logical_endpoint) = logical_endpoint {
+                let saw_sse = requested_stream
+                    && super::response_processor::is_sse_response(&response);
+                self.record_capability_success(app_type, provider, logical_endpoint, saw_sse)
+                    .await;
+            }
             Ok(response)
         } else {
             let status_code = status.as_u16();
             let body_text = response.text().await.ok();
+
+            if let Some(logical_endpoint) = logical_endpoint {
+                self.record_capability_failure(
+                    app_type,
+                    provider,
+                    logical_endpoint,
+                    status_code,
+                    body_text.as_deref(),
+                )
+                .await;
+            }
+
+            log::warn!(
+                "[{tag}] <<< 上游错误: status={status_code}, logical_endpoint={logical_endpoint_label}, url={url}, path_strategy={path_strategy}, path_rewritten={path_rewritten}"
+            );
 
             Err(ProxyError::UpstreamError {
                 status: status_code,
@@ -966,6 +1007,81 @@ impl RequestForwarder {
             // 其他错误（数据库/内部错误等）：不是换供应商能解决的问题
             _ => ErrorCategory::NonRetryable,
         }
+    }
+
+    async fn record_capability_success(
+        &self,
+        app_type: &AppType,
+        provider: &Provider,
+        logical_endpoint: LogicalEndpoint,
+        saw_sse: bool,
+    ) {
+        let key = format!("{}::{}", app_type.as_str(), provider.id);
+        let mut cache = self.upstream_compatibility.write().await;
+        let current = cache
+            .get(&key)
+            .cloned()
+            .unwrap_or_else(|| UpstreamCompatibility::for_provider(app_type, provider));
+        let updated = current.with_success(logical_endpoint, Some(saw_sse), "runtime");
+        cache.insert(key, updated);
+    }
+
+    async fn record_capability_failure(
+        &self,
+        app_type: &AppType,
+        provider: &Provider,
+        logical_endpoint: LogicalEndpoint,
+        status: u16,
+        body: Option<&str>,
+    ) {
+        let key = format!("{}::{}", app_type.as_str(), provider.id);
+        let mut cache = self.upstream_compatibility.write().await;
+        let current = cache
+            .get(&key)
+            .cloned()
+            .unwrap_or_else(|| UpstreamCompatibility::for_provider(app_type, provider));
+        let note = body.and_then(|value| {
+            let trimmed = value.trim();
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed.chars().take(240).collect::<String>())
+            }
+        });
+        let updated = current.with_http_failure(logical_endpoint, status, "runtime", note);
+        cache.insert(key, updated);
+    }
+}
+
+fn resolve_logical_endpoint(
+    endpoint: &str,
+    needs_transform: bool,
+    adapter: &dyn ProviderAdapter,
+    provider: &Provider,
+) -> Option<LogicalEndpoint> {
+    if needs_transform && adapter.name() == "Claude" && endpoint == "/v1/messages" {
+        let api_format = super::providers::get_claude_api_format(provider);
+        return match api_format {
+            "openai_responses" => Some(LogicalEndpoint::ResponsesCreate),
+            "openai_chat" => Some(LogicalEndpoint::ChatCompletions),
+            _ => Some(LogicalEndpoint::ClaudeMessages),
+        };
+    }
+
+    match endpoint {
+        "/responses" | "/v1/responses" | "/v1/v1/responses" | "/codex/v1/responses" => {
+            Some(LogicalEndpoint::ResponsesCreate)
+        }
+        "/responses/compact"
+        | "/v1/responses/compact"
+        | "/v1/v1/responses/compact"
+        | "/codex/v1/responses/compact" => Some(LogicalEndpoint::ResponsesCompact),
+        "/chat/completions"
+        | "/v1/chat/completions"
+        | "/v1/v1/chat/completions"
+        | "/codex/v1/chat/completions" => Some(LogicalEndpoint::ChatCompletions),
+        "/v1/messages" => Some(LogicalEndpoint::ClaudeMessages),
+        _ => None,
     }
 }
 
