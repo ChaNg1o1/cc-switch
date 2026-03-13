@@ -83,7 +83,7 @@ jobs:
         run: pnpm run build:renderer
 
       - name: Build Tauri bundles
-        run: pnpm tauri build ${{ matrix.tauri_args }}
+        run: pnpm tauri build ${{ matrix.tauri_args }} --config '{"bundle":{"createUpdaterArtifacts":false}}'
 
       - name: Prepare macOS artifact
         if: runner.os == 'macOS'
