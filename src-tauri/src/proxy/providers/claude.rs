@@ -12,6 +12,7 @@
 //! - **ClaudeAuth**: 中转服务 (仅 Bearer 认证，无 x-api-key)
 //! - **OpenRouter**: 已支持 Claude Code 兼容接口，默认透传
 
+use super::auth::normalize_api_key;
 use super::{AuthInfo, AuthStrategy, LogicalEndpoint, ProviderAdapter, ProviderType};
 use crate::provider::Provider;
 use crate::proxy::error::ProxyError;
@@ -140,52 +141,45 @@ impl ClaudeAdapter {
     fn extract_key(&self, provider: &Provider) -> Option<String> {
         if let Some(env) = provider.settings_config.get("env") {
             // Anthropic 标准 key
-            if let Some(key) = env
-                .get("ANTHROPIC_AUTH_TOKEN")
-                .and_then(|v| v.as_str())
-                .filter(|s| !s.is_empty())
-            {
+            if let Some(key) = normalize_api_key(
+                env.get("ANTHROPIC_AUTH_TOKEN")
+                    .and_then(|v| v.as_str()),
+            ) {
                 log::debug!("[Claude] 使用 ANTHROPIC_AUTH_TOKEN");
-                return Some(key.to_string());
+                return Some(key);
             }
-            if let Some(key) = env
-                .get("ANTHROPIC_API_KEY")
-                .and_then(|v| v.as_str())
-                .filter(|s| !s.is_empty())
-            {
+            if let Some(key) = normalize_api_key(
+                env.get("ANTHROPIC_API_KEY").and_then(|v| v.as_str()),
+            ) {
                 log::debug!("[Claude] 使用 ANTHROPIC_API_KEY");
-                return Some(key.to_string());
+                return Some(key);
             }
             // OpenRouter key
-            if let Some(key) = env
-                .get("OPENROUTER_API_KEY")
-                .and_then(|v| v.as_str())
-                .filter(|s| !s.is_empty())
-            {
+            if let Some(key) = normalize_api_key(
+                env.get("OPENROUTER_API_KEY").and_then(|v| v.as_str()),
+            ) {
                 log::debug!("[Claude] 使用 OPENROUTER_API_KEY");
-                return Some(key.to_string());
+                return Some(key);
             }
             // 备选 OpenAI key (用于 OpenRouter)
-            if let Some(key) = env
-                .get("OPENAI_API_KEY")
-                .and_then(|v| v.as_str())
-                .filter(|s| !s.is_empty())
-            {
+            if let Some(key) = normalize_api_key(
+                env.get("OPENAI_API_KEY").and_then(|v| v.as_str()),
+            ) {
                 log::debug!("[Claude] 使用 OPENAI_API_KEY");
-                return Some(key.to_string());
+                return Some(key);
             }
         }
 
         // 尝试直接获取
-        if let Some(key) = provider
-            .settings_config
-            .get("apiKey")
-            .or_else(|| provider.settings_config.get("api_key"))
-            .and_then(|v| v.as_str())
-            .filter(|s| !s.is_empty())
-        {
+        if let Some(key) = normalize_api_key(
+            provider
+                .settings_config
+                .get("apiKey")
+                .or_else(|| provider.settings_config.get("api_key"))
+                .and_then(|v| v.as_str()),
+        ) {
             log::debug!("[Claude] 使用 apiKey/api_key");
-            return Some(key.to_string());
+            return Some(key);
         }
 
         log::warn!("[Claude] 未找到有效的 API Key");

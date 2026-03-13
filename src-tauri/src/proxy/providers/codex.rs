@@ -5,6 +5,7 @@
 //! ## 客户端检测
 //! 支持检测官方 Codex 客户端 (codex_vscode, codex_cli_rs)
 
+use super::auth::normalize_api_key;
 use super::{AuthInfo, AuthStrategy, LogicalEndpoint, ProviderAdapter};
 use crate::provider::Provider;
 use crate::proxy::error::ProxyError;
@@ -35,38 +36,51 @@ impl CodexAdapter {
 
     /// 从 Provider 配置中提取 API Key
     fn extract_key(&self, provider: &Provider) -> Option<String> {
-        // 1. 尝试从 env 中获取
-        if let Some(env) = provider.settings_config.get("env") {
-            if let Some(key) = env.get("OPENAI_API_KEY").and_then(|v| v.as_str()) {
-                return Some(key.to_string());
+        // 1. 优先从 auth 中获取 (Codex CLI 的规范位置)
+        if let Some(auth) = provider.settings_config.get("auth") {
+            if let Some(key) = normalize_api_key(
+                auth.get("OPENAI_API_KEY")
+                    .or_else(|| auth.get("api_key"))
+                    .or_else(|| auth.get("apiKey"))
+                    .and_then(|v| v.as_str()),
+            ) {
+                return Some(key);
             }
         }
 
-        // 2. 尝试从 auth 中获取 (Codex CLI 格式)
-        if let Some(auth) = provider.settings_config.get("auth") {
-            if let Some(key) = auth.get("OPENAI_API_KEY").and_then(|v| v.as_str()) {
-                return Some(key.to_string());
+        // 2. 兼容从 env 中获取
+        if let Some(env) = provider.settings_config.get("env") {
+            if let Some(key) = normalize_api_key(
+                env.get("OPENAI_API_KEY")
+                    .or_else(|| env.get("api_key"))
+                    .or_else(|| env.get("apiKey"))
+                    .and_then(|v| v.as_str()),
+            ) {
+                return Some(key);
             }
         }
 
         // 3. 尝试直接获取
-        if let Some(key) = provider
-            .settings_config
-            .get("apiKey")
-            .or_else(|| provider.settings_config.get("api_key"))
-            .and_then(|v| v.as_str())
-        {
-            return Some(key.to_string());
+        if let Some(key) = normalize_api_key(
+            provider
+                .settings_config
+                .get("apiKey")
+                .or_else(|| provider.settings_config.get("api_key"))
+                .and_then(|v| v.as_str()),
+        ) {
+            return Some(key);
         }
 
         // 4. 尝试从 config 对象中获取
         if let Some(config) = provider.settings_config.get("config") {
-            if let Some(key) = config
-                .get("api_key")
-                .or_else(|| config.get("apiKey"))
-                .and_then(|v| v.as_str())
-            {
-                return Some(key.to_string());
+            if let Some(key) = normalize_api_key(
+                config
+                    .get("OPENAI_API_KEY")
+                    .or_else(|| config.get("api_key"))
+                    .or_else(|| config.get("apiKey"))
+                    .and_then(|v| v.as_str()),
+            ) {
+                return Some(key);
             }
         }
 
@@ -246,6 +260,38 @@ mod tests {
 
         let auth = adapter.extract_auth(&provider).unwrap();
         assert_eq!(auth.api_key, "sk-env-key-12345678");
+    }
+
+    #[test]
+    fn test_extract_auth_prefers_auth_over_env() {
+        let adapter = CodexAdapter::new();
+        let provider = create_provider(json!({
+            "env": {
+                "OPENAI_API_KEY": "sk-stale-env-key"
+            },
+            "auth": {
+                "OPENAI_API_KEY": "sk-auth-key-12345678"
+            }
+        }));
+
+        let auth = adapter.extract_auth(&provider).unwrap();
+        assert_eq!(auth.api_key, "sk-auth-key-12345678");
+    }
+
+    #[test]
+    fn test_extract_auth_ignores_proxy_placeholder() {
+        let adapter = CodexAdapter::new();
+        let provider = create_provider(json!({
+            "env": {
+                "OPENAI_API_KEY": "PROXY_MANAGED"
+            },
+            "auth": {
+                "OPENAI_API_KEY": "sk-auth-key-12345678"
+            }
+        }));
+
+        let auth = adapter.extract_auth(&provider).unwrap();
+        assert_eq!(auth.api_key, "sk-auth-key-12345678");
     }
 
     #[test]

@@ -2,6 +2,24 @@
 //!
 //! 定义认证信息和认证策略，支持多种上游供应商的认证方式。
 
+/// Proxy takeover placeholder value.
+///
+/// When the proxy takes over live configs it replaces real API keys with this
+/// sentinel.  Adapter `extract_key` methods must skip values equal to this
+/// constant to avoid forwarding an invalid key to the upstream.
+pub const PROXY_MANAGED_PLACEHOLDER: &str = "PROXY_MANAGED";
+
+/// Normalize an optional API key string.
+///
+/// Returns `None` for empty strings, whitespace-only strings, and the
+/// [`PROXY_MANAGED_PLACEHOLDER`] sentinel.
+pub fn normalize_api_key(value: Option<&str>) -> Option<String> {
+    value
+        .map(str::trim)
+        .filter(|v| !v.is_empty() && *v != PROXY_MANAGED_PLACEHOLDER)
+        .map(ToOwned::to_owned)
+}
+
 /// 认证信息
 ///
 /// 包含 API Key 和对应的认证策略

@@ -121,19 +121,22 @@ impl GeminiAdapter {
     fn extract_key_raw(&self, provider: &Provider) -> Option<String> {
         if let Some(env) = provider.settings_config.get("env") {
             // 使用 GEMINI_API_KEY
-            if let Some(key) = env.get("GEMINI_API_KEY").and_then(|v| v.as_str()) {
-                return Some(key.to_string());
+            if let Some(key) = super::auth::normalize_api_key(
+                env.get("GEMINI_API_KEY").and_then(|v| v.as_str()),
+            ) {
+                return Some(key);
             }
         }
 
         // 尝试直接获取
-        if let Some(key) = provider
-            .settings_config
-            .get("apiKey")
-            .or_else(|| provider.settings_config.get("api_key"))
-            .and_then(|v| v.as_str())
-        {
-            return Some(key.to_string());
+        if let Some(key) = super::auth::normalize_api_key(
+            provider
+                .settings_config
+                .get("apiKey")
+                .or_else(|| provider.settings_config.get("api_key"))
+                .and_then(|v| v.as_str()),
+        ) {
+            return Some(key);
         }
 
         None
