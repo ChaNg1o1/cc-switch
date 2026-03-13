@@ -1,0 +1,1297 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 2
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          },
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "11.1.0",
+      "targets": [
+        {
+          "expr": "sum(rate(${metric_prefix}_requests_total{job=~\"$job\",provider=~\"$provider\",route=~\"$route\",model=~\"$model\"}[5m]))",
+          "legendFormat": "QPS",
+          "refId": "A"
+        }
+      ],
+      "title": "Request Rate",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 100
+              },
+              {
+                "color": "red",
+                "value": 500
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 4,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "11.1.0",
+      "targets": [
+        {
+          "expr": "sum(rate(${metric_prefix}_output_tokens_total{job=~\"$job\",provider=~\"$provider\",route=~\"$route\",model=~\"$model\"}[5m]))",
+          "legendFormat": "TPS",
+          "refId": "A"
+        }
+      ],
+      "title": "Output TPS",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.02
+              },
+              {
+                "color": "red",
+                "value": 0.05
+              }
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 8,
+        "y": 0
+      },
+      "id": 3,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "11.1.0",
+      "targets": [
+        {
+          "expr": "sum(rate(${metric_prefix}_requests_total{job=~\"$job\",provider=~\"$provider\",route=~\"$route\",model=~\"$model\",status=~\"5..|error\"}[5m])) / clamp_min(sum(rate(${metric_prefix}_requests_total{job=~\"$job\",provider=~\"$provider\",route=~\"$route\",model=~\"$model\"}[5m])), 1)",
+          "legendFormat": "Error Rate",
+          "refId": "A"
+        }
+      ],
+      "title": "Request Error Rate",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1.5
+              },
+              {
+                "color": "red",
+                "value": 3
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 12,
+        "y": 0
+      },
+      "id": 4,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "11.1.0",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(${metric_prefix}_ttft_seconds_bucket{job=~\"$job\",provider=~\"$provider\",route=~\"$route\",model=~\"$model\"}[5m])))",
+          "legendFormat": "TTFT p99",
+          "refId": "A"
+        }
+      ],
+      "title": "TTFT p99",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 5
+              },
+              {
+                "color": "red",
+                "value": 15
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 16,
+        "y": 0
+      },
+      "id": 5,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "11.1.0",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(${metric_prefix}_request_duration_seconds_bucket{job=~\"$job\",provider=~\"$provider\",route=~\"$route\",model=~\"$model\"}[5m])))",
+          "legendFormat": "Duration p99",
+          "refId": "A"
+        }
+      ],
+      "title": "End-to-End Latency p99",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 100
+              },
+              {
+                "color": "red",
+                "value": 500
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 20,
+        "y": 0
+      },
+      "id": 6,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "11.1.0",
+      "targets": [
+        {
+          "expr": "sum(${metric_prefix}_inflight_requests{job=~\"$job\",provider=~\"$provider\",route=~\"$route\",model=~\"$model\"})",
+          "legendFormat": "In-flight",
+          "refId": "A"
+        }
+      ],
+      "title": "In-flight Requests",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "seconds",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 5
+      },
+      "id": 7,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(${metric_prefix}_ttft_seconds_bucket{job=~\"$job\",provider=~\"$provider\",route=~\"$route\",model=~\"$model\"}[5m])))",
+          "legendFormat": "TTFT p50",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(${metric_prefix}_ttft_seconds_bucket{job=~\"$job\",provider=~\"$provider\",route=~\"$route\",model=~\"$model\"}[5m])))",
+          "legendFormat": "TTFT p95",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(${metric_prefix}_ttft_seconds_bucket{job=~\"$job\",provider=~\"$provider\",route=~\"$route\",model=~\"$model\"}[5m])))",
+          "legendFormat": "TTFT p99",
+          "refId": "C"
+        }
+      ],
+      "title": "TTFT Quantiles",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "seconds",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 5
+      },
+      "id": 8,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(${metric_prefix}_request_duration_seconds_bucket{job=~\"$job\",provider=~\"$provider\",route=~\"$route\",model=~\"$model\"}[5m])))",
+          "legendFormat": "Duration p50",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(${metric_prefix}_request_duration_seconds_bucket{job=~\"$job\",provider=~\"$provider\",route=~\"$route\",model=~\"$model\"}[5m])))",
+          "legendFormat": "Duration p95",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(${metric_prefix}_request_duration_seconds_bucket{job=~\"$job\",provider=~\"$provider\",route=~\"$route\",model=~\"$model\"}[5m])))",
+          "legendFormat": "Duration p99",
+          "refId": "C"
+        }
+      ],
+      "title": "End-to-End Latency Quantiles",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "seconds",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 12,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 16,
+        "x": 0,
+        "y": 13
+      },
+      "id": 9,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(${metric_prefix}_prompt_build_seconds_bucket{job=~\"$job\",provider=~\"$provider\",route=~\"$route\",model=~\"$model\"}[5m])))",
+          "legendFormat": "prompt_build p95",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(${metric_prefix}_upstream_connect_seconds_bucket{job=~\"$job\",provider=~\"$provider\",route=~\"$route\",model=~\"$model\"}[5m])))",
+          "legendFormat": "upstream_connect p95",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(${metric_prefix}_upstream_wait_seconds_bucket{job=~\"$job\",provider=~\"$provider\",route=~\"$route\",model=~\"$model\"}[5m])))",
+          "legendFormat": "upstream_wait p95",
+          "refId": "C"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(${metric_prefix}_proxy_flush_seconds_bucket{job=~\"$job\",provider=~\"$provider\",route=~\"$route\",model=~\"$model\"}[5m])))",
+          "legendFormat": "proxy_flush p95",
+          "refId": "D"
+        }
+      ],
+      "title": "TTFT Breakdown p95",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "tokens/s",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 16,
+        "y": 13
+      },
+      "id": 10,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(${metric_prefix}_input_tokens_total{job=~\"$job\",provider=~\"$provider\",route=~\"$route\",model=~\"$model\"}[5m]))",
+          "legendFormat": "input tokens/s",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(${metric_prefix}_output_tokens_total{job=~\"$job\",provider=~\"$provider\",route=~\"$route\",model=~\"$model\"}[5m]))",
+          "legendFormat": "output tokens/s",
+          "refId": "B"
+        },
+        {
+          "expr": "sum(rate(${metric_prefix}_cached_tokens_total{job=~\"$job\",provider=~\"$provider\",route=~\"$route\",model=~\"$model\"}[5m]))",
+          "legendFormat": "cached tokens/s",
+          "refId": "C"
+        }
+      ],
+      "title": "Token Throughput",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "tokens/request",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 22
+      },
+      "id": 11,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(${metric_prefix}_input_tokens_total{job=~\"$job\",provider=~\"$provider\",route=~\"$route\",model=~\"$model\"}[5m])) / clamp_min(sum(rate(${metric_prefix}_requests_total{job=~\"$job\",provider=~\"$provider\",route=~\"$route\",model=~\"$model\"}[5m])), 1)",
+          "legendFormat": "avg input tokens/request",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(${metric_prefix}_cached_tokens_total{job=~\"$job\",provider=~\"$provider\",route=~\"$route\",model=~\"$model\"}[5m])) / clamp_min(sum(rate(${metric_prefix}_requests_total{job=~\"$job\",provider=~\"$provider\",route=~\"$route\",model=~\"$model\"}[5m])), 1)",
+          "legendFormat": "avg cached tokens/request",
+          "refId": "B"
+        }
+      ],
+      "title": "Prompt Size per Request",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "percent",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 22
+      },
+      "id": 12,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(${metric_prefix}_upstream_requests_total{job=~\"$job\",provider=~\"$provider\",route=~\"$route\",model=~\"$model\",status=~\"429|5..\"}[5m])) / clamp_min(sum(rate(${metric_prefix}_upstream_requests_total{job=~\"$job\",provider=~\"$provider\",route=~\"$route\",model=~\"$model\"}[5m])), 1)",
+          "legendFormat": "upstream 429/5xx rate",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(${metric_prefix}_requests_total{job=~\"$job\",provider=~\"$provider\",route=~\"$route\",model=~\"$model\",cache_hit=\"true\"}[5m])) / clamp_min(sum(rate(${metric_prefix}_requests_total{job=~\"$job\",provider=~\"$provider\",route=~\"$route\",model=~\"$model\"}[5m])), 1)",
+          "legendFormat": "prefix cache hit rate",
+          "refId": "B"
+        },
+        {
+          "expr": "sum(rate(${metric_prefix}_requests_total{job=~\"$job\",provider=~\"$provider\",route=~\"$route\",model=~\"$model\",connection_reused=\"true\"}[5m])) / clamp_min(sum(rate(${metric_prefix}_requests_total{job=~\"$job\",provider=~\"$provider\",route=~\"$route\",model=~\"$model\"}[5m])), 1)",
+          "legendFormat": "connection reused rate",
+          "refId": "C"
+        }
+      ],
+      "title": "Key Rates",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 30
+      },
+      "id": 13,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Value"
+          }
+        ]
+      },
+      "targets": [
+        {
+          "expr": "topk(10, histogram_quantile(0.95, sum by (route, le) (rate(${metric_prefix}_ttft_seconds_bucket{job=~\"$job\",provider=~\"$provider\",route=~\"$route\",model=~\"$model\"}[5m]))))",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "{{route}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Top Routes by TTFT p95",
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "le": true
+            },
+            "renameByName": {
+              "Value": "TTFT p95"
+            }
+          }
+        }
+      ],
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 30
+      },
+      "id": 14,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "avg input tokens/request"
+          }
+        ]
+      },
+      "targets": [
+        {
+          "expr": "topk(10, sum by (model) (rate(${metric_prefix}_input_tokens_total{job=~\"$job\",provider=~\"$provider\",route=~\"$route\",model=~\"$model\"}[5m])) / clamp_min(sum by (model) (rate(${metric_prefix}_requests_total{job=~\"$job\",provider=~\"$provider\",route=~\"$route\",model=~\"$model\"}[5m])), 1))",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "{{model}}",
+          "refId": "A"
+        },
+        {
+          "expr": "topk(10, histogram_quantile(0.95, sum by (model, le) (rate(${metric_prefix}_ttft_seconds_bucket{job=~\"$job\",provider=~\"$provider\",route=~\"$route\",model=~\"$model\"}[5m]))))",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "{{model}}",
+          "refId": "B"
+        }
+      ],
+      "title": "Model Hotspots",
+      "transformations": [
+        {
+          "id": "joinByField",
+          "options": {
+            "byField": "model",
+            "mode": "outer"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "Time 1": true,
+              "Value": false,
+              "Value 1": false
+            },
+            "renameByName": {
+              "Value": "avg input tokens/request",
+              "Value 1": "TTFT p95"
+            }
+          }
+        }
+      ],
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 39
+      },
+      "id": 15,
+      "options": {
+        "content": "# Metric Contract\n\nThis dashboard assumes Prometheus metrics following these conventions:\n\n- `${metric_prefix}_requests_total{job,provider,route,model,status,cache_hit,connection_reused}`\n- `${metric_prefix}_upstream_requests_total{job,provider,route,model,status}`\n- `${metric_prefix}_inflight_requests{job,provider,route,model}`\n- `${metric_prefix}_input_tokens_total{job,provider,route,model}`\n- `${metric_prefix}_output_tokens_total{job,provider,route,model}`\n- `${metric_prefix}_cached_tokens_total{job,provider,route,model}`\n- `${metric_prefix}_ttft_seconds_bucket`\n- `${metric_prefix}_request_duration_seconds_bucket`\n- `${metric_prefix}_prompt_build_seconds_bucket`\n- `${metric_prefix}_upstream_connect_seconds_bucket`\n- `${metric_prefix}_upstream_wait_seconds_bucket`\n- `${metric_prefix}_proxy_flush_seconds_bucket`\n\nRecommended label set for debugging TTFT: `provider`, `model`, `route`, `region`, `status`, `cache_hit`, `connection_reused`, `cold_start`.\n\nIf your metric names differ, only change the `metric_prefix` variable or the PromQL expressions.",
+        "mode": "markdown"
+      },
+      "pluginVersion": "11.1.0",
+      "title": "Usage Notes",
+      "type": "text"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": [
+    "llm",
+    "latency",
+    "ttft",
+    "observability"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": false,
+          "text": "Prometheus",
+          "value": "Prometheus"
+        },
+        "hide": 0,
+        "includeAll": false,
+        "label": "Datasource",
+        "name": "datasource",
+        "options": [],
+        "query": "prometheus",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "datasource"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "llm_proxy",
+          "value": "llm_proxy"
+        },
+        "hide": 0,
+        "includeAll": false,
+        "label": "Metric Prefix",
+        "name": "metric_prefix",
+        "options": [
+          {
+            "selected": true,
+            "text": "llm_proxy",
+            "value": "llm_proxy"
+          }
+        ],
+        "query": "llm_proxy",
+        "skipUrlSync": false,
+        "type": "constant"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${datasource}"
+        },
+        "definition": "label_values(${metric_prefix}_requests_total, job)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Job",
+        "multi": true,
+        "name": "job",
+        "options": [],
+        "query": {
+          "qryType": 1,
+          "query": "label_values(${metric_prefix}_requests_total, job)",
+          "refId": "GrafanaVariableQueryEditor-Job"
+        },
+        "refresh": 2,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${datasource}"
+        },
+        "definition": "label_values(${metric_prefix}_requests_total{job=~\"$job\"}, provider)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Provider",
+        "multi": true,
+        "name": "provider",
+        "options": [],
+        "query": {
+          "qryType": 1,
+          "query": "label_values(${metric_prefix}_requests_total{job=~\"$job\"}, provider)",
+          "refId": "GrafanaVariableQueryEditor-Provider"
+        },
+        "refresh": 2,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${datasource}"
+        },
+        "definition": "label_values(${metric_prefix}_requests_total{job=~\"$job\",provider=~\"$provider\"}, route)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Route",
+        "multi": true,
+        "name": "route",
+        "options": [],
+        "query": {
+          "qryType": 1,
+          "query": "label_values(${metric_prefix}_requests_total{job=~\"$job\",provider=~\"$provider\"}, route)",
+          "refId": "GrafanaVariableQueryEditor-Route"
+        },
+        "refresh": 2,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${datasource}"
+        },
+        "definition": "label_values(${metric_prefix}_requests_total{job=~\"$job\",provider=~\"$provider\",route=~\"$route\"}, model)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Model",
+        "multi": true,
+        "name": "model",
+        "options": [],
+        "query": {
+          "qryType": 1,
+          "query": "label_values(${metric_prefix}_requests_total{job=~\"$job\",provider=~\"$provider\",route=~\"$route\"}, model)",
+          "refId": "GrafanaVariableQueryEditor-Model"
+        },
+        "refresh": 2,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "LLM Latency and TTFT Observatory",
+  "uid": "llm-latency-observatory",
+  "version": 1,
+  "weekStart": ""
+}

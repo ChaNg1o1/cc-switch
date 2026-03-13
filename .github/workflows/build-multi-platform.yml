@@ -20,10 +20,13 @@ jobs:
         include:
           - os: ubuntu-22.04
             artifact_name: cc-switch-linux
+            tauri_args: --bundles appimage,deb,rpm
           - os: windows-2022
             artifact_name: cc-switch-windows
+            tauri_args: --bundles msi
           - os: macos-14
             artifact_name: cc-switch-macos
+            tauri_args: --bundles app,dmg
 
     steps:
       - name: Checkout
@@ -79,16 +82,29 @@ jobs:
       - name: Build renderer
         run: pnpm run build:renderer
 
-      - name: Build Rust binary
-        run: cargo build --manifest-path src-tauri/Cargo.toml --release
+      - name: Build Tauri bundles
+        run: pnpm tauri build ${{ matrix.tauri_args }}
 
-      - name: Prepare Unix artifact
-        if: runner.os != 'Windows'
+      - name: Prepare macOS artifact
+        if: runner.os == 'macOS'
         shell: bash
         run: |
           set -euxo pipefail
           mkdir -p artifacts
-          cp src-tauri/target/release/cc-switch artifacts/
+          APP_PATH=$(find src-tauri/target -path "*/release/bundle/macos/*.app" -type d | head -1 || true)
+          DMG_PATH=$(find src-tauri/target -path "*/release/bundle/dmg/*.dmg" -type f | head -1 || true)
+
+          if [ -n "$APP_PATH" ]; then
+            APP_DIR=$(dirname "$APP_PATH")
+            APP_NAME=$(basename "$APP_PATH")
+            tar -C "$APP_DIR" -czf "artifacts/${APP_NAME}.tar.gz" "$APP_NAME"
+          fi
+
+          if [ -n "$DMG_PATH" ]; then
+            cp "$DMG_PATH" artifacts/
+          fi
+
+          ls -la artifacts
 
       - name: Prepare Windows artifact
         if: runner.os == 'Windows'
@@ -96,7 +112,19 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           New-Item -ItemType Directory -Force -Path artifacts | Out-Null
-          Copy-Item 'src-tauri/target/release/cc-switch.exe' 'artifacts/'
+          Get-ChildItem -Path 'src-tauri/target' -Recurse -Include *.msi -File | ForEach-Object {
+            Copy-Item $_.FullName 'artifacts/'
+          }
+          Get-ChildItem -Path artifacts
+
+      - name: Prepare Linux artifact
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p artifacts
+          find src-tauri/target -path '*/release/bundle/*' \( -name '*.AppImage' -o -name '*.deb' -o -name '*.rpm' \) -type f -exec cp {} artifacts/ \;
+          ls -la artifacts
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
