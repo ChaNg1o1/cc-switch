@@ -82,8 +82,12 @@ jobs:
       - name: Build renderer
         run: pnpm run build:renderer
 
+      - name: Prepare CI Tauri config override
+        run: |
+          node -e "require('fs').writeFileSync('src-tauri/tauri.ci.build.config.json', JSON.stringify({ bundle: { createUpdaterArtifacts: false } }))"
+
       - name: Build Tauri bundles
-        run: pnpm tauri build ${{ matrix.tauri_args }} --config '{"bundle":{"createUpdaterArtifacts":false}}'
+        run: pnpm tauri build ${{ matrix.tauri_args }} --config src-tauri/tauri.ci.build.config.json
 
       - name: Prepare macOS artifact
         if: runner.os == 'macOS'
