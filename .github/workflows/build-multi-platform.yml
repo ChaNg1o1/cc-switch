@@ -76,8 +76,11 @@ jobs:
       - name: Install frontend deps
         run: pnpm install --frozen-lockfile
 
-      - name: Build Tauri app without bundles
-        run: pnpm tauri build --bundles none
+      - name: Build renderer
+        run: pnpm run build:renderer
+
+      - name: Build Rust binary
+        run: cargo build --manifest-path src-tauri/Cargo.toml --release
 
       - name: Prepare Unix artifact
         if: runner.os != 'Windows'
